@@ -86,11 +86,11 @@ if [[ $id -eq root ]]; then
 	next
 
 	step "Updating packages ..."
-	try apt-get upgrade
+	try apt-get upgrade -y
 	next
 
 	step "Updating system ..."
-	try apt-get dist-upgrade
+	try apt-get dist-upgrade -y
 	next
 
 	step "Upadting Raspberry Pi ..."
@@ -99,12 +99,12 @@ if [[ $id -eq root ]]; then
 
 	# INSTALL PYTHON AND DEPENDENCIES.
 	step "Installing Python and Python dependencies ..."
-	try apt-get install python python-pip
+	try apt-get install python python-pip python-picamera python-rpi.gpio -y
 	next
 
 	# OPENCV AND DEPENDENCIES.
 	step "Installing OpenCV ..."
-	try apt-get install libopencv-dev python-opencv
+	try apt-get install libopencv-dev python-opencv -y
 	next
 
 	step "Installing OpenCV dependencies ..."
@@ -113,7 +113,7 @@ if [[ $id -eq root ]]; then
 
 	# GSTREAMER FOR VIDEO STREAMING [EMLID METHOD]. ### TRY LOW LATENCY METHOD POSTED IN HERE [http://petrkout.com/electronics/low-latency-0-4-s-video-streaming-from-raspberry-pi-mjpeg-streamer-opencv/] ###
 	step "Installing video streaming dependencies ..."
-	try apt-get install gstreamer1.0
+	try apt-get install gstreamer1.0 -y
 	next
 
 	# ARDUPILOT MISSION PLANNER
@@ -127,6 +127,7 @@ if [[ $id -eq root ]]; then
 		try wget 'http://files.emlid.com/apm/apm-navio2_3.3.2-rc2-beta-1.2_armhf.deb' -O ${SPATH}/apm-navio2.deb && dpkg -i apm-navio2.deb
 		next
 	fi
+<<<<<<< HEAD
 
 	# CONFIGURING RASPBERRY PI
 	# ENABLING SSH AT BOOT
@@ -289,5 +290,5 @@ if [[ $id -eq root ]]; then
 	esac
 	}
 	REB
-
+	
 fi
