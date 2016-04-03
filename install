@@ -1,0 +1,294 @@
+#!/bin/bash
+# SCRIPT THAT INSTALLS ALL REQUIREMENTS FOR RASPBERRY PI
+# AUTHOR: JOSÉ LUIS RODRÍGUEZ FRAGOSO
+
+# COLOR MATCHING
+NONE='\033[0m'
+BOLD='\033[1m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+
+# DETERMINE IF USER IS ROOT
+if [ "`id -u`" -eq 0 ]; then
+	id=root
+else
+	echo -e "\n${RED}You need to be root.${NONE}"
+fi
+
+# DETERMINE DIRECTORY OF THIS SCRIPT.
+SPATH="`dirname \"$0\"`"              # RELATIVE PATH
+SPATH="`( cd \"SPATH\" && pwd )`"  # ABSOLUTE AND NORMALIZED PATH
+# IF ERROR [VARIABLE NOT SET] RETURN ERROR
+if [ -z "$SPATH" ] ; then
+	echo -e "\n${RED}Cannot determine script directory.${NONE}"
+	exit 1
+fi
+
+# DETERMINE IF APM REQUIRED FILES EXISTS IN THIS SCRIPT FOLDER.
+if [ ! -f ${SPATH}/apm.deb ]; then
+	APMFILE=local
+fi
+
+# FUNCTIONS FOR ERROR REPORTING.
+step() {
+    echo -n "$@"
+
+    STEP_OK=0
+    [[ -w /tmp ]] && echo $STEP_OK > /tmp/step.$$
+}
+
+try() {
+    # CHECK FOR `-B' ARGUMENT TO RUN COMMAND IN THE BACKGROUND.
+    local BG=
+
+    [[ $1 == -b ]] && { BG=1; shift; }
+    [[ $1 == -- ]] && {       shift; }
+
+    # Run the command.
+    if [[ -z $BG ]]; then
+        "$@"
+    else
+        "$@" &
+    fi
+
+    # CHECK IF COMMAND FAILED AND UPDATE $STEP_OK IF SO.
+    local EXIT_CODE=$?
+
+    if [[ $EXIT_CODE -ne 0 ]]; then
+        STEP_OK=$EXIT_CODE
+        [[ -w /tmp ]] && echo $STEP_OK > /tmp/step.$$
+
+        if [[ -n $LOG_STEPS ]]; then
+            local FILE=$(readlink -m "${BASH_SOURCE[1]}")
+            local LINE=${BASH_LINENO[0]}
+
+            echo "$FILE: line $LINE: Command \`$*' failed with exit code $EXIT_CODE." >> "$LOG_STEPS"
+        fi
+    fi
+
+    return $EXIT_CODE
+}
+
+next() {
+    [[ -f /tmp/step.$$ ]] && { STEP_OK=$(< /tmp/step.$$); rm -f /tmp/step.$$; }
+    [[ $STEP_OK -eq 0 ]]  && echo_success || echo_failure
+    echo
+
+    return $STEP_OK
+}
+
+# INSTALL ALL REQUIRED FILES.
+if [[ $id -eq root ]]; then
+
+	# UPDATE SYSTEM.
+	step "Updating system repositories ..."
+	try apt-get update
+	next
+
+	step "Updating packages ..."
+	try apt-get upgrade -y
+	next
+
+	step "Updating system ..."
+	try apt-get dist-upgrade -y
+	next
+
+	step "Upadting Raspberry Pi ..."
+	next
+	try rpi-update
+
+	# INSTALL PYTHON AND DEPENDENCIES.
+	step "Installing Python and Python dependencies ..."
+	try apt-get install python python-pip python-picamera python-rpi.gpio -y
+	next
+
+	# OPENCV AND DEPENDENCIES.
+	step "Installing OpenCV ..."
+	try apt-get install libopencv-dev python-opencv -y
+	next
+
+	step "Installing OpenCV dependencies ..."
+	try pip install numpy picamera[array] imutils
+	next
+
+	# GSTREAMER FOR VIDEO STREAMING [EMLID METHOD]. ### TRY LOW LATENCY METHOD POSTED IN HERE [http://petrkout.com/electronics/low-latency-0-4-s-video-streaming-from-raspberry-pi-mjpeg-streamer-opencv/] ###
+	step "Installing video streaming dependencies ..."
+	try apt-get install gstreamer1.0 -y
+	next
+
+	# ARDUPILOT MISSION PLANNER
+	# IF INSTALLATION FILE EXISTS IN THIS SCRIPT DIRECTORY JUST INSTALL, IF NOT DOWNLOAD AND THEN INSTALL.
+	step "Installing APM for mission control ..."
+	if [[ -z "${APMFILE}" ]]; then
+		try dpkg -i ${SPATH}/apm.deb
+		next
+	else
+		echo -e "\n${BOLD}Downloading APM from internet ...${NONE}"
+		try wget 'http://files.emlid.com/apm/apm-navio2_3.3.2-rc2-beta-1.2_armhf.deb' -O ${SPATH}/apm-navio2.deb && dpkg -i apm-navio2.deb
+		next
+	fi
+<<<<<<< HEAD
+
+	# CONFIGURING RASPBERRY PI
+	# ENABLING SSH AT BOOT
+	step "Enabling SSH at boot ..."
+	try update-rc.d ssh enable && invoke-rc.d ssh start
+	next
+
+	# ENABLING RASPICAM AND SET GPU MEMORY TO 128 [AT LEAST RECOMMENDED]
+	CNFPATH=/boot/config.txt
+	step "Enabling raspicam ..."
+	GPUMEM() {
+		if grep "gpu_mem=128" ${CNFPATH}; then
+			echo -e "GPU memory is 128"
+			next
+		else
+			echo "gpu_mem=128" >> ${CNFPATH}
+			next
+		fi
+	}
+	if grep "start_x=1" ${CNFPATH}; then
+		echo -e "\n${BOLD}Raspicam is already enabled.${NONE}"
+		GPUMEM
+	else
+		try sed -i "s/start_x=0/start_x=1/g" /boot/config.txt
+		GPUMEM
+	fi
+
+	# CONFIGURING NETWORK INTERFACES
+	step "Creating backup of network interfaces ..."
+	try mv /etc/network/interfaces /etc/network/interfaces.bak
+	next
+
+	step "Creating network configuration file ..."
+	try cat < EOF > /etc/network/interfaces
+		source-directory /etc/network/interfaces.d
+		auto lo
+		iface lo inet loopback
+
+		auto eth0
+		iface eth0 inet static
+		address 192.168.1.102
+		gateway 192.168.1.103
+		netmask 255.255.255.0
+		network 192.168.1.0
+		broadcast 192.168.1.255
+		dns-nameservers 132.248.227.242 200.52.196.246
+		up route add -host 192.168.1.103 dev eth0
+		up route add default gw 192.168.1.103 dev eth0
+
+		auto usb0
+		iface usb0 inet static
+		address 192.168.42.42
+		netmask 255.255.255.0
+		network 192.168.42.0
+		broadcast 192.168.42.255
+
+		allow-hotplug wlan0
+		iface wlan0 inet manual
+		    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+
+		allow-hotplug wlan1
+		iface wlan1 inet manual
+		    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+		EOF
+	next
+
+	# CONFIGURING SSH TO AVOID DELAY IN CONNECTION AND ENABLE X FORWARDING
+	# MAKING BACKUP
+	SSHPATH=/etc/ssh
+	step "Creating backup of SSH configuration ..."
+	try mv ${SSPATH}/ssh_config ${SSHPATH}/ssh_config.bak && mv ${SSPATH}/sshd_config ${SSHPATH}/sshd_config.bak
+	next
+
+	# CONFIGURING CLIENT
+	step "Configuring SSH Client ..."
+	try cat < EOF > ${SSHPATH}/ssh_config
+			Host *
+				ForwardAgent yes
+				ForwardX11 yes
+				ForwardX11Trusted yes
+				GSSAPIAuthentication no
+				GSSAPIDelegateCredentials no
+				GSSAPIKeyExchange no
+				GSSAPITrustDNS no
+				CheckHostIP no
+				SendEnv LANG LC_*
+				HashKnownHosts yes
+				UseDNS no
+		EOF
+	next
+
+	# CONFIGURING DAEMON
+	step "Configuring SSH Daemon ..."
+	try cat < EOF > ${SSHPATH}/sshd_config
+			Port 22
+			Protocol 2
+			HostKey /etc/ssh/ssh_host_rsa_key
+			HostKey /etc/ssh/ssh_host_dsa_key
+			HostKey /etc/ssh/ssh_host_ecdsa_key
+			HostKey /etc/ssh/ssh_host_ed25519_key
+			UsePrivilegeSeparation yes
+			KeyRegenerationInterval 3600
+			ServerKeyBits 1024
+			SyslogFacility AUTH
+			LogLevel INFO
+			LoginGraceTime 120
+			PermitRootLogin yes
+			StrictModes yes
+			RSAAuthentication yes
+			PubkeyAuthentication yes
+			IgnoreRhosts yes
+			RhostsRSAAuthentication no
+			HostbasedAuthentication no
+			PermitEmptyPasswords no
+			ChallengeResponseAuthentication no
+			GSSAPIAuthentication no
+			GSSAPICleanupCredentials no
+			X11Forwarding yes
+			X11DisplayOffset 10
+			PrintMotd no
+			PrintLastLog yes
+			TCPKeepAlive yes
+			AcceptEnv LANG LC_*
+			Subsystem sftp /usr/lib/openssh/sftp-server
+			UsePAM yes
+			UseDNS no
+		EOF
+	next
+
+	# CONFIGURE DNS NAMESERVERS
+	# PERSISTENCE HEADERS DNS FILE
+	step "Configuring DNS HEADERS..."
+	try cat < EOF > /etc/resolv.conf.head
+			nameserver 189.198.222.137
+			nameserver 200.52.196.246
+		EOF
+	next
+	step "Configuring main DNS ..."
+	try cat < EOF > /etc/resolv.conf
+			nameserver 189.198.222.137
+			nameserver 200.52.196.246
+			nameserver 132.248.227.242
+			nameserver 200.52.196.246
+		EOF
+	next
+
+	# COPYING REQUIRED FILES
+	step "Copying OpenCV Motion Detector files ..."
+	try cp -r ${SPATH}/OpenCV/ ~/
+	next
+
+	# FINISHING
+	REB() {
+		echo -e -n "\n${BOLD}The system need to reboot, reboot now? ${CYAN}[Y,N]${NONE}"
+	read REBOOT
+	case "REBOOT" in
+		Y|y|YES|yes|Yes|YeS|YEs|yeS|yES) reboot ;;
+		N|n|NO|no|No|nO) exit ;;
+		*) echo -e "\n${RED}That is not a valid option${NONE}" && REB ;;
+	esac
+	}
+	REB
+	
+fi
