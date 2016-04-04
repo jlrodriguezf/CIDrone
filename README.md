@@ -9,7 +9,7 @@ Linux tool used to simplify the setup of a Raspberry Pi based drone.
 * Installs Python and its dependencies.
 * Installs OpenCV for computer vision.
 * Installs Gstreamer for video streaming.
-* Installs APM aka Ardupilot for easy control.
+* Installs APM *aka* Ardupilot for easy control.
 * Configure SSH at boot.
 * Enables picamera.
 * Enables X Forwarding to transmit OpenCV streaming.
@@ -85,3 +85,5 @@ You need to setup the same in your Ground Control station otherwise your SSH pas
 	Subsystem sftp /usr/lib/openssh/sftp-server
 	UsePAM yes
 	UseDNS no
+# License and Disclaimer
+See the [license](https://github.com/jlrodriguezf/CIDrone/blob/master/LICENSE) and [disclaimer](https://github.com/jlrodriguezf/CIDrone/blob/master/DISCLAIMER) files.
