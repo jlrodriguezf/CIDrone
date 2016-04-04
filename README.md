@@ -1,6 +1,6 @@
 # Description
 Linux tool used to simplify the setup of a Raspberry Pi based drone.
-###### [TESTING PENDING]
+###### TESTING PENDING
 
 #### What it does?
 
@@ -13,6 +13,7 @@ Linux tool used to simplify the setup of a Raspberry Pi based drone.
 * Configure SSH at boot.
 * Enables picamera.
 * Enables X Forwarding to transmit OpenCV streaming.
+* Copy Motion Detector script based on the one made by [Adrian Rosebrock](http://www.pyimagesearch.com/2015/06/01/home-surveillance-and-motion-detection-with-the-raspberry-pi-python-and-opencv/)
     
 ### Network Configuration
 You need setup the same in your Ground Control station but with another ip address, for example, if the Raspberry Pi is 192.168.1.102 your GCS should be 192.168.1.* except 102, and the gateway should be the counterpart.
